@@ -78,6 +78,22 @@ def make_text_depth_map(text, size, font_size, subtlety, blur_radius):
     return arr
 
 
+def make_text_image(text, size, font_size):
+    """Generate a simple black text on white background image."""
+    W, H = size
+    img = Image.new("RGB", (W, H), (255, 255, 255))  # white background
+    draw = ImageDraw.Draw(img)
+    font = get_font(font_size)
+
+    bbox = draw.textbbox((0, 0), text, font=font)
+    tx, ty = (W - (bbox[2] - bbox[0])) // 2, (H - (bbox[3] - bbox[1])) // 2
+
+    # draw black text
+    draw.text((tx, ty), text, fill=(0, 0, 0), font=font)
+
+    return img
+
+
 # ------------- RDS generator (single anaglyph canvas) -------------
 def draw_square(canvas, x, y, size, color):
     H, W, _ = canvas.shape
@@ -87,7 +103,15 @@ def draw_square(canvas, x, y, size, color):
     canvas[y0:y1, x0:x1] = color
 
 
-def rds_anaglyph_single(depth_map, max_disparity, dot_density, dot_size, seed):
+def rds_anaglyph_single(
+    depth_map, max_disparity, dot_density, dot_size, seed, mode="anaglyph"
+):
+    """
+    Generate RDS image.
+
+    Args:
+        mode: "anaglyph" (both red and cyan), "red_only", or "cyan_only"
+    """
     if seed is not None:
         random.seed(seed)
         np.random.seed(seed)
@@ -104,16 +128,44 @@ def rds_anaglyph_single(depth_map, max_disparity, dot_density, dot_size, seed):
             d = int(disp[y, x])
             xr = x + d
             # cyan at base; red shifted horizontally
-            draw_square(canvas, x, y, dot_size, [0, 255, 255])
-            if 0 <= xr < W:
-                draw_square(canvas, xr, y, dot_size, [255, 0, 0])
+            if mode in ["anaglyph", "cyan_only"]:
+                draw_square(canvas, x, y, dot_size, [0, 255, 255])
+            if mode in ["anaglyph", "red_only"]:
+                if 0 <= xr < W:
+                    draw_square(canvas, xr, y, dot_size, [255, 0, 0])
     return Image.fromarray(canvas)
 
 
 # ------------- run -------------
 if __name__ == "__main__":
     depth = make_text_depth_map(TEXT, OUTPUT_SIZE, FONT_SIZE, SUBTLETY, BLUR_RADIUS)
-    img = rds_anaglyph_single(depth, MAX_DISPARITY, DOT_DENSITY, DOT_SIZE, RANDOM_SEED)
-    out = "nihao_rds_subtle.png"
-    img.save(out)
-    print(f"[✓] Saved {out}")
+
+    # Generate anaglyph (both red and cyan)
+    img_anaglyph = rds_anaglyph_single(
+        depth, MAX_DISPARITY, DOT_DENSITY, DOT_SIZE, RANDOM_SEED, mode="anaglyph"
+    )
+    out_anaglyph = "nihao_rds_subtle.png"
+    img_anaglyph.save(out_anaglyph)
+    print(f"[✓] Saved {out_anaglyph}")
+
+    # Generate red-only version
+    img_red = rds_anaglyph_single(
+        depth, MAX_DISPARITY, DOT_DENSITY, DOT_SIZE, RANDOM_SEED, mode="red_only"
+    )
+    out_red = "nihao_rds_red_only.png"
+    img_red.save(out_red)
+    print(f"[✓] Saved {out_red}")
+
+    # Generate cyan-only version
+    img_cyan = rds_anaglyph_single(
+        depth, MAX_DISPARITY, DOT_DENSITY, DOT_SIZE, RANDOM_SEED, mode="cyan_only"
+    )
+    out_cyan = "nihao_rds_cyan_only.png"
+    img_cyan.save(out_cyan)
+    print(f"[✓] Saved {out_cyan}")
+
+    # Generate simple text image (black on white)
+    img_text = make_text_image(TEXT, OUTPUT_SIZE, FONT_SIZE)
+    out_text = "nihao_text.png"
+    img_text.save(out_text)
+    print(f"[✓] Saved {out_text}")
