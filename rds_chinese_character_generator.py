@@ -9,7 +9,7 @@ TEXT = "你好"
 OUTPUT_SIZE = (1200, 800)
 FONT_SIZE = 500
 SUBTLETY = 0.425  # 0.0 very subtle --> 1.0 obvious
-DOT_DENSITY = 0.12  # dot probability per pixel
+DOT_DENSITY = 0.10  # dot probability per pixel
 DOT_SIZE = 3  # 3x3 squares
 MAX_DISPARITY = 16  # pixels
 BLUR_RADIUS = 1.0
@@ -26,7 +26,7 @@ def try_load_font(candidates, size):
         except Exception:
             pass
     print(
-        "[!] No listed CJK fonts found; using default (likely missing Chinese glyphs)."
+        "[!] No listed CJK fonts found; using default (likely missing Chinese character font)."
     )
     return ImageFont.load_default()
 
@@ -63,14 +63,14 @@ def make_text_depth_map(text, size, font_size, subtlety, blur_radius):
 
     arr = np.asarray(img).astype(np.float32) / 255.0
 
-    # Sanity check: make sure we actually drew glyphs
+    # Sanity check: make sure we actually drew the characters
     nonzero_ratio = (arr > 1e-3).mean()
     if nonzero_ratio < 0.001:
         print(
-            "[!] Warning: depth map appears empty. This means the font did not render Chinese glyphs."
+            "[!] Warning: depth map appears empty. This probably means the font did not render the Chinese characters."
         )
         print(
-            "    -> Install a CJK font (e.g., Noto Sans CJK) or update the font path list above."
+            "--> Install a CJK font (e.g., Noto Sans CJK) or update the font path list above."
         )
     else:
         print(f"[i] Depth map OK. Non-zero pixels: {nonzero_ratio:.3%}")
@@ -103,11 +103,30 @@ def draw_square(canvas, x, y, size, color):
     canvas[y0:y1, x0:x1] = color
 
 
+def generate_random_dot_pattern(size, dot_density, dot_size, seed):
+    """Generates a random dot pattern image (no depth/disparity)."""
+    if seed is not None:
+        random.seed(seed)
+        np.random.seed(seed)
+
+    W, H = size
+    canvas = np.full((H, W, 3), 255, dtype=np.uint8)  # white bg
+    mask = np.random.rand(H, W) < dot_density
+
+    for y in range(H):
+        xs = np.where(mask[y])[0]
+        for x in xs:
+            # Draw black dots for the pattern
+            draw_square(canvas, x, y, dot_size, [0, 0, 0])
+
+    return Image.fromarray(canvas)
+
+
 def rds_anaglyph_single(
     depth_map, max_disparity, dot_density, dot_size, seed, mode="anaglyph"
 ):
     """
-    Generate RDS image.
+    Generates an RDS image.
 
     Args:
         mode: "anaglyph" (both red and cyan), "red_only", or "cyan_only"
@@ -140,13 +159,21 @@ def rds_anaglyph_single(
 if __name__ == "__main__":
     depth = make_text_depth_map(TEXT, OUTPUT_SIZE, FONT_SIZE, SUBTLETY, BLUR_RADIUS)
 
-    # Generate anaglyph (both red and cyan)
+    # Generate random dot pattern (no depth)
+    img_pattern = generate_random_dot_pattern(
+        OUTPUT_SIZE, DOT_DENSITY, DOT_SIZE, RANDOM_SEED
+    )
+    out_pattern = "nihao_dot_pattern.png"
+    img_pattern.save(out_pattern)
+    print(f"Saved {out_pattern}")
+
+    # Generate anaglyph (both red and cyan) - default depth
     img_anaglyph = rds_anaglyph_single(
         depth, MAX_DISPARITY, DOT_DENSITY, DOT_SIZE, RANDOM_SEED, mode="anaglyph"
     )
     out_anaglyph = "nihao_rds_subtle.png"
     img_anaglyph.save(out_anaglyph)
-    print(f"[✓] Saved {out_anaglyph}")
+    print(f"Saved {out_anaglyph}")
 
     # Generate red-only version
     img_red = rds_anaglyph_single(
@@ -154,7 +181,7 @@ if __name__ == "__main__":
     )
     out_red = "nihao_rds_red_only.png"
     img_red.save(out_red)
-    print(f"[✓] Saved {out_red}")
+    print(f"Saved {out_red}")
 
     # Generate cyan-only version
     img_cyan = rds_anaglyph_single(
@@ -162,10 +189,27 @@ if __name__ == "__main__":
     )
     out_cyan = "nihao_rds_cyan_only.png"
     img_cyan.save(out_cyan)
-    print(f"[✓] Saved {out_cyan}")
+    print(f"Saved {out_cyan}")
 
     # Generate simple text image (black on white)
     img_text = make_text_image(TEXT, OUTPUT_SIZE, FONT_SIZE)
     out_text = "nihao_text.png"
     img_text.save(out_text)
-    print(f"[✓] Saved {out_text}")
+    print(f"Saved {out_text}")
+
+    # Generate multiple depth variations
+    print("\n[i] Generating depth variations...")
+    depth_variations = [
+        (8, "shallow"),  # shallow depth
+        (16, "medium"),  # medium depth (default)
+        (24, "deep"),  # deep depth
+        (32, "very_deep"),  # very deep depth
+    ]
+
+    for disparity, label in depth_variations:
+        img_var = rds_anaglyph_single(
+            depth, disparity, DOT_DENSITY, DOT_SIZE, RANDOM_SEED, mode="anaglyph"
+        )
+        out_var = f"nihao_rds_{label}_depth.png"
+        img_var.save(out_var)
+        print(f"Saved {out_var} (disparity={disparity}px)")
