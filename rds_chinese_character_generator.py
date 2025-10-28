@@ -203,7 +203,7 @@ if __name__ == "__main__":
         (8, "shallow"),  # shallow depth
         (16, "medium"),  # medium depth (default)
         (24, "deep"),  # deep depth
-        (32, "very_deep"),  # very deep depth
+        (64, "very_deep"),  # very deep depth
     ]
 
     for disparity, label in depth_variations:

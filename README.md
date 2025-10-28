@@ -141,7 +141,7 @@ If no Chinese font is found, it will use the default font (which may not display
 ### Depth Variations
 Try viewing the different depth files to see how disparity affects the 3D effect:
 - Shallow depth (8px) is easier to fuse but less dramatic
-- Deep depth (32px) is more impressive but may be harder to see
+- Deep depth (64px) is more impressive but may be harder to see
 
 ## Technical Details
 
